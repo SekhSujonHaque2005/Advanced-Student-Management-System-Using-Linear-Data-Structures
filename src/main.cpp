@@ -1,25 +1,13 @@
-/*
-------------------------------------------------------------
-Project Name : Advanced Student Record Management System
-Course       : Basic Data Structures and Algorithms
-Language     : C++
-Developed By : Sekh Sujon Haque
-------------------------------------------------------------
-Description:
-A console-based Student Record Management System implementing
-Linear Data Structures including Linked List, Stack, Queue,
-Searching, and Sorting Algorithms.
-------------------------------------------------------------
-*/
-
 #include <iostream>
 #include <string>
+#include <iomanip>
+#include <fstream>
+#include <sstream>
 
 using namespace std;
 
-struct Student
-{
-    string registrationNo;     // Primary Key
+struct Student {
+    string registrationNo;
     int rollNo;
     string name;
     string gender;
@@ -29,90 +17,516 @@ struct Student
     float cgpa;
     string phone;
     string email;
-
     Student* next;
 };
 
+struct StackNode {
+    Student* studentData;
+    StackNode* next;
+};
 
-Student* head = nullptr;
-void displayTitle();
-void displayMenu();
+struct QueueNode {
+    string registrationNo;
+    QueueNode* next;
+};
 
-int main()
-{
-    int choice;
+class StudentManagementSystem {
+private:
+    Student* head;
+    StackNode* topStack;
+    QueueNode* frontQueue;
+    QueueNode* rearQueue;
+    
+    int queueSize;
+    const int MAX_QUEUE = 5;
 
-    do
-    {
-        displayTitle();
-        displayMenu();
+    void pushUndo(Student* student);
+    Student* popUndo();
+    void enqueueSearch(string regNo);
+    void dequeueSearch();
+    void swapStudentData(Student* a, Student* b);
 
-        cout << "\nEnter Your Choice : ";
-        cin >> choice;
+public:
+    StudentManagementSystem() {
+        head = nullptr;
+        topStack = nullptr;
+        frontQueue = nullptr;
+        rearQueue = nullptr;
+        queueSize = 0;
+        loadFromFile();
+    }
 
-        switch(choice)
-        {
-            case 1:
-                cout << "\n[ Register Student Module ]\n";
-                break;
+    void run();
+    void displayTitle();
+    void displayMenu();
 
-            case 2:
-                cout << "\n[ Display Students Module ]\n";
-                break;
+    Student* createStudentNode();
+    void inputStudentData(Student* student);
+    bool isDuplicateRegistration(string registrationNo);
+    void insertAtEnd(Student* newStudent);
 
-            case 3:
-                cout << "\n[ Search Student Module ]\n";
-                break;
+    void registerStudent();
+    void displayStudents();
+    void searchStudent();
+    void updateStudent();
+    void deleteStudent();
+    
+    void sortStudents();
+    void bubbleSortByCGPA();
+    void selectionSortByRollNo();
 
-            case 4:
-                cout << "\n[ Update Student Module ]\n";
-                break;
+    void undoLastDelete();
+    void displayRecentSearches();
+    void statistics();
+    
+    void saveToFile();
+    void loadFromFile();
+};
 
-            case 5:
-                cout << "\n[ Delete Student Module ]\n";
-                break;
+void StudentManagementSystem::pushUndo(Student* student) {
+    StackNode* newNode = new StackNode;
+    newNode->studentData = student;
+    newNode->next = topStack;
+    topStack = newNode;
+}
 
-            case 6:
-                cout << "\n[ Sorting Module ]\n";
-                break;
+Student* StudentManagementSystem::popUndo() {
+    if (topStack == nullptr) return nullptr;
+    
+    StackNode* temp = topStack;
+    Student* restoredStudent = temp->studentData;
+    topStack = topStack->next;
+    delete temp;
+    
+    return restoredStudent;
+}
 
-            case 7:
-                cout << "\n[ Undo Delete Module ]\n";
-                break;
+void StudentManagementSystem::enqueueSearch(string regNo) {
+    if (queueSize == MAX_QUEUE) {
+        dequeueSearch();
+    }
 
-            case 8:
-                cout << "\n[ Recent Searches Module ]\n";
-                break;
+    QueueNode* newNode = new QueueNode;
+    newNode->registrationNo = regNo;
+    newNode->next = nullptr;
 
-            case 9:
-                cout << "\n[ Statistics Module ]\n";
-                break;
+    if (rearQueue == nullptr) {
+        frontQueue = rearQueue = newNode;
+    } else {
+        rearQueue->next = newNode;
+        rearQueue = newNode;
+    }
+    queueSize++;
+}
 
-            case 10:
-                cout << "\nThank You!\n";
-                break;
+void StudentManagementSystem::dequeueSearch() {
+    if (frontQueue == nullptr) return;
 
-            default:
-                cout << "\nInvalid Choice!\n";
+    QueueNode* temp = frontQueue;
+    frontQueue = frontQueue->next;
+
+    if (frontQueue == nullptr) {
+        rearQueue = nullptr;
+    }
+
+    delete temp;
+    queueSize--;
+}
+
+void StudentManagementSystem::swapStudentData(Student* a, Student* b) {
+    swap(a->registrationNo, b->registrationNo);
+    swap(a->rollNo, b->rollNo);
+    swap(a->name, b->name);
+    swap(a->gender, b->gender);
+    swap(a->age, b->age);
+    swap(a->department, b->department);
+    swap(a->semester, b->semester);
+    swap(a->cgpa, b->cgpa);
+    swap(a->phone, b->phone);
+    swap(a->email, b->email);
+}
+
+Student* StudentManagementSystem::createStudentNode() {
+    Student* newStudent = new Student;
+    newStudent->next = nullptr;
+    return newStudent;
+}
+
+bool StudentManagementSystem::isDuplicateRegistration(string registrationNo) {
+    Student* current = head;
+    while (current != nullptr) {
+        if (current->registrationNo == registrationNo) {
+            return true;
+        }
+        current = current->next;
+    }
+    return false;
+}
+
+void StudentManagementSystem::insertAtEnd(Student* newStudent) {
+    if (head == nullptr) {
+        head = newStudent;
+        return;
+    }
+
+    Student* current = head;
+    while (current->next != nullptr) {
+        current = current->next;
+    }
+    current->next = newStudent;
+}
+
+void StudentManagementSystem::inputStudentData(Student* student) {
+    cout << "\nRegistration Number : ";
+    cin >> student->registrationNo;
+
+    cout << "Roll Number         : ";
+    cin >> student->rollNo;
+    cin.ignore(); 
+
+    cout << "Student Name        : ";
+    getline(cin, student->name);
+
+    cout << "Gender              : ";
+    getline(cin, student->gender);
+
+    cout << "Age                 : ";
+    cin >> student->age;
+    cin.ignore();
+
+    cout << "Department          : ";
+    getline(cin, student->department);
+
+    cout << "Semester            : ";
+    cin >> student->semester;
+
+    cout << "CGPA                : ";
+    cin >> student->cgpa;
+    cin.ignore();
+
+    cout << "Phone Number        : ";
+    getline(cin, student->phone);
+
+    cout << "Email Address       : ";
+    getline(cin, student->email);
+}
+
+void StudentManagementSystem::registerStudent() {
+    Student* newStudent = createStudentNode();
+    inputStudentData(newStudent);
+
+    if (isDuplicateRegistration(newStudent->registrationNo)) {
+        cout << "\nError: Registration Number already exists!\n";
+        delete newStudent;
+        return;
+    }
+
+    insertAtEnd(newStudent);
+    cout << "\nStudent Registered Successfully!\n";
+}
+
+void StudentManagementSystem::displayStudents() {
+    if (head == nullptr) {
+        cout << "\nNo student records available.\n";
+        return;
+    }
+
+    cout << left 
+         << setw(15) << "Reg No" 
+         << setw(10) << "Roll No" 
+         << setw(20) << "Name" 
+         << setw(15) << "Dept" 
+         << setw(8)  << "CGPA" 
+         << setw(25) << "Email\n";
+    cout << "-----------------------------------------------------------------------------------------\n";
+
+    Student* current = head;
+    while (current != nullptr) {
+        cout << left 
+             << setw(15) << current->registrationNo 
+             << setw(10) << current->rollNo 
+             << setw(20) << current->name.substr(0, 19) 
+             << setw(15) << current->department.substr(0, 14) 
+             << setw(8)  << fixed << setprecision(2) << current->cgpa 
+             << setw(25) << current->email.substr(0, 24) 
+             << "\n";
+        current = current->next;
+    }
+}
+
+void StudentManagementSystem::searchStudent() {
+    if (head == nullptr) {
+        cout << "\nNo records available.\n";
+        return;
+    }
+
+    string regNo;
+    cout << "\nEnter Registration Number to Search: ";
+    cin >> regNo;
+
+    Student* current = head;
+    while (current != nullptr) {
+        if (current->registrationNo == regNo) {
+            cout << "\nStudent Found!\n";
+            cout << "Name: " << current->name << " | Dept: " << current->department << " | CGPA: " << current->cgpa << "\n";
+            
+            enqueueSearch(regNo);
+            return;
+        }
+        current = current->next;
+    }
+
+    cout << "\nStudent not found.\n";
+}
+
+void StudentManagementSystem::updateStudent() {
+    if (head == nullptr) {
+        cout << "\nNo records available to update.\n";
+        return;
+    }
+
+    string regNo;
+    cout << "\nEnter Registration Number of Student to Update: ";
+    cin >> regNo;
+
+    Student* current = head;
+    while (current != nullptr) {
+        if (current->registrationNo == regNo) {
+            cout << "Semester (" << current->semester << "): ";
+            cin >> current->semester;
+
+            cout << "CGPA (" << current->cgpa << "): ";
+            cin >> current->cgpa;
+            cin.ignore();
+
+            cout << "Phone Number (" << current->phone << "): ";
+            getline(cin, current->phone);
+
+            cout << "\nStudent Record Updated Successfully!\n";
+            return;
+        }
+        current = current->next;
+    }
+
+    cout << "\nStudent not found.\n";
+}
+
+void StudentManagementSystem::deleteStudent() {
+    if (head == nullptr) {
+        cout << "\nNo records available to delete.\n";
+        return;
+    }
+
+    string regNo;
+    cout << "\nEnter Registration Number of Student to Delete: ";
+    cin >> regNo;
+
+    Student* current = head;
+    Student* prev = nullptr;
+
+    while (current != nullptr && current->registrationNo != regNo) {
+        prev = current;
+        current = current->next;
+    }
+
+    if (current == nullptr) {
+        cout << "\nStudent not found.\n";
+        return;
+    }
+
+    if (prev == nullptr) {
+        head = current->next;
+    } else {
+        prev->next = current->next;
+    }
+    
+    current->next = nullptr; 
+    
+    pushUndo(current);
+    cout << "\nStudent Deleted Successfully! (Can be undone)\n";
+}
+
+void StudentManagementSystem::undoLastDelete() {
+    Student* restored = popUndo();
+    
+    if (restored == nullptr) {
+        cout << "\nUndo Stack is empty.\n";
+        return;
+    }
+
+    insertAtEnd(restored);
+    cout << "\nUndo Successful! Student restored.\n";
+}
+
+void StudentManagementSystem::displayRecentSearches() {
+    if (frontQueue == nullptr) {
+        cout << "\nNo recent searches found.\n";
+        return;
+    }
+
+    QueueNode* current = frontQueue;
+    int i = 1;
+    while (current != nullptr) {
+        cout << i << ". " << current->registrationNo << "\n";
+        current = current->next;
+        i++;
+    }
+}
+
+void StudentManagementSystem::statistics() {
+    if (head == nullptr) {
+        cout << "\nNo records available.\n";
+        return;
+    }
+
+    int totalStudents = 0;
+    float maxCGPA = 0.0f;
+    float minCGPA = 10.0f;
+    float sumCGPA = 0.0f;
+
+    Student* current = head;
+    while (current != nullptr) {
+        totalStudents++;
+        sumCGPA += current->cgpa;
+        if (current->cgpa > maxCGPA) maxCGPA = current->cgpa;
+        if (current->cgpa < minCGPA) minCGPA = current->cgpa;
+        current = current->next;
+    }
+
+    cout << "Total Students : " << totalStudents << "\n";
+    cout << "Highest CGPA   : " << maxCGPA << "\n";
+    cout << "Lowest CGPA    : " << minCGPA << "\n";
+    cout << "Average CGPA   : " << (sumCGPA / totalStudents) << "\n";
+}
+
+void StudentManagementSystem::bubbleSortByCGPA() {
+    if (head == nullptr || head->next == nullptr) return;
+
+    bool swapped;
+    Student* current;
+    Student* lastSorted = nullptr;
+
+    do {
+        swapped = false;
+        current = head;
+
+        while (current->next != lastSorted) {
+            if (current->cgpa < current->next->cgpa) { 
+                swapStudentData(current, current->next);
+                swapped = true;
+            }
+            current = current->next;
+        }
+        lastSorted = current;
+    } while (swapped);
+}
+
+void StudentManagementSystem::selectionSortByRollNo() {
+    if (head == nullptr) return;
+
+    Student* current = head;
+    while (current != nullptr) {
+        Student* minNode = current;
+        Student* temp = current->next;
+
+        while (temp != nullptr) {
+            if (temp->rollNo < minNode->rollNo) { 
+                minNode = temp;
+            }
+            temp = temp->next;
         }
 
-    } while(choice != 10);
-
-    return 0;
+        if (minNode != current) {
+            swapStudentData(current, minNode);
+        }
+        current = current->next;
+    }
 }
 
-void displayTitle()
-{
-    cout << "\n==============================================================\n";
-    cout << "      ADVANCED STUDENT RECORD MANAGEMENT SYSTEM\n";
-    cout << "==============================================================\n";
-    cout << "Course : Basic Data Structures and Algorithms\n";
-    cout << "Developer : Sekh Sujon Haque\n";
-    cout << "==============================================================\n";
+void StudentManagementSystem::sortStudents() {
+    cout << "\n1. Sort by CGPA (Bubble Sort)\n2. Sort by Roll Number (Selection Sort)\nEnter Choice: ";
+    
+    int choice;
+    cin >> choice;
+
+    if (choice == 1) {
+        bubbleSortByCGPA();
+        cout << "\nStudents sorted by CGPA!\n";
+        displayStudents();
+    } else if (choice == 2) {
+        selectionSortByRollNo();
+        cout << "\nStudents sorted by Roll Number!\n";
+        displayStudents();
+    } else {
+        cout << "\nInvalid choice!\n";
+    }
 }
 
-void displayMenu()
-{
+void StudentManagementSystem::saveToFile() {
+    ofstream outFile("students.txt");
+    if (!outFile) return;
+
+    Student* current = head;
+    while (current != nullptr) {
+        outFile << current->registrationNo << "|"
+                << current->rollNo << "|"
+                << current->name << "|"
+                << current->gender << "|"
+                << current->age << "|"
+                << current->department << "|"
+                << current->semester << "|"
+                << current->cgpa << "|"
+                << current->phone << "|"
+                << current->email << "\n";
+        current = current->next;
+    }
+    outFile.close();
+}
+
+void StudentManagementSystem::loadFromFile() {
+    ifstream inFile("students.txt");
+    if (!inFile) return;
+
+    string line;
+    while (getline(inFile, line)) {
+        if (line.empty()) continue;
+
+        Student* newStudent = createStudentNode();
+        stringstream ss(line);
+        string token;
+
+        getline(ss, newStudent->registrationNo, '|');
+        
+        getline(ss, token, '|');
+        newStudent->rollNo = stoi(token);
+
+        getline(ss, newStudent->name, '|');
+        getline(ss, newStudent->gender, '|');
+        
+        getline(ss, token, '|');
+        newStudent->age = stoi(token);
+
+        getline(ss, newStudent->department, '|');
+        
+        getline(ss, token, '|');
+        newStudent->semester = stoi(token);
+
+        getline(ss, token, '|');
+        newStudent->cgpa = stof(token);
+
+        getline(ss, newStudent->phone, '|');
+        getline(ss, newStudent->email, '|');
+
+        insertAtEnd(newStudent);
+    }
+    inFile.close();
+}
+
+void StudentManagementSystem::displayTitle() {
+    cout << "\n--- ADVANCED STUDENT RECORD MANAGEMENT SYSTEM ---\n";
+}
+
+void StudentManagementSystem::displayMenu() {
     cout << "\n1. Register New Student";
     cout << "\n2. Display All Students";
     cout << "\n3. Search Student";
@@ -122,5 +536,39 @@ void displayMenu()
     cout << "\n7. Undo Last Delete";
     cout << "\n8. Recent Searches";
     cout << "\n9. Statistics";
-    cout << "\n10. Exit";
+    cout << "\n10. Save and Exit\n";
+}
+
+void StudentManagementSystem::run() {
+    int choice;
+    do {
+        displayTitle();
+        displayMenu();
+
+        cout << "\nEnter Your Choice : ";
+        cin >> choice;
+
+        switch(choice) {
+            case 1:  registerStudent(); break;
+            case 2:  displayStudents(); break;
+            case 3:  searchStudent(); break;
+            case 4:  updateStudent(); break;
+            case 5:  deleteStudent(); break;
+            case 6:  sortStudents(); break;
+            case 7:  undoLastDelete(); break;
+            case 8:  displayRecentSearches(); break;
+            case 9:  statistics(); break;
+            case 10: 
+                saveToFile();
+                cout << "\nRecords Saved. Thank You!\n";
+                break;
+            default: cout << "\nInvalid Choice! Try again.\n";
+        }
+    } while (choice != 10);
+}
+
+int main() {
+    StudentManagementSystem sms;
+    sms.run();
+    return 0;
 }
